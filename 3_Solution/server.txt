@@ -1,0 +1,90 @@
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#include <iostream>
+#include <winsock2.h>
+
+
+#pragma comment(lib, "ws2_32.lib")
+
+int main() {
+    WSADATA wsa;
+    SOCKET server_socket, client_socket;
+    struct sockaddr_in server_address, client_address;
+    int recv_size;
+    char server_message[2000], client_response[2000];
+
+    std::cout << "Initializing Winsock..." << std::endl;
+
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        std::cout << "WSAStartup failed. Error code: " << WSAGetLastError() << std::endl;
+        return 1;
+    }
+
+    std::cout << "Winsock initialized." << std::endl;
+
+    // Create a socket
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (server_socket == INVALID_SOCKET) {
+        std::cout << "Could not create socket. Error code: " << WSAGetLastError() << std::endl;
+        return 1;
+    }
+
+    std::cout << "Socket created." << std::endl;
+
+    // Bind the socket to a specific IP and port
+    server_address.sin_family = AF_INET;
+    server_address.sin_addr.s_addr = INADDR_ANY;
+    server_address.sin_port = htons(54000);
+
+    if (bind(server_socket, (struct sockaddr*)&server_address, sizeof(server_address)) == SOCKET_ERROR) {
+        std::cout << "Bind failed. Error code: " << WSAGetLastError() << std::endl;
+        return 1;
+    }
+
+    std::cout << "Bind done." << std::endl;listen(server_socket, 3);
+    while (true) {
+        // Listen for incoming connections
+        
+
+        std::cout << "Waiting for incoming connections..." << std::endl;
+
+        // Accept an incoming connection
+        int client_address_size = sizeof(client_address);
+        client_socket = accept(server_socket, (struct sockaddr*)&client_address, &client_address_size);
+
+        if (client_socket == INVALID_SOCKET) {
+            std::cout << "Accept failed. Error code: " << WSAGetLastError() << std::endl;
+            return 1;
+        }
+
+        std::cout << "Connection accepted from " << inet_ntoa(client_address.sin_addr) << ":" << ntohs(client_address.sin_port) << std::endl;
+
+        while (true) {
+            // Receive data from client
+            recv_size = recv(client_socket, client_response, sizeof(client_response), 0);
+
+            if (recv_size == SOCKET_ERROR) {
+                std::cout << "Error in recv(). Quitting" << std::endl;
+                break;
+            }
+
+            std::cout << "Received message: " << client_response << std::endl;
+
+            // Send a response back to the client
+            strcpy(server_message, "Server received the message.");
+            send(client_socket, server_message, strlen(server_message), 0);
+            //if (send(client_socket, server_message, strlen(server_message), 0) == SOCKET_ERROR) {
+            //    std::cout << "Send failed. Error code: " << WSAGetLastError() << std::endl;
+            //    return 1;
+            //}
+
+            std::cout << "Response sent to client." << std::endl;
+        }
+    }
+    // Close the socket and cleanup Winsock
+    closesocket(server_socket);
+    WSACleanup();
+
+    return 0;
+}
