@@ -45,21 +45,50 @@ void Server::clientHandler(SOCKET clientSocket, DAL db) {
             std::cout << "Client disconnected: " << clientHost << ":" << clientPort << std::endl;
             return;
         }
-        username = strtok(buf, "*");
-        password = strtok(NULL, "*");
 
-        checkCred = db.getUserByUsername(username, password); //verify if there is a user with the username selected and if the password is correct
-        if (checkCred) {
-            response = "You're logged in!";
-            send(clientSocket, "You're logged in!", response.size() + 1, 0);
+        std::string protocol;
+        protocol = strtok(buf, "*");
+
+        if (protocol == "0")
+        {
+            username = strtok(NULL, "*");
+            password = strtok(NULL, "*");
+
+            //Create user
+            //std::string protocol;
+            // if(protocol == "1")
+
+            checkCred = db.getUserByUsername(username, password); //verify if there is a user with the username selected and if the password is correct
+            if (checkCred)
+            {
+                response = "You're logged in!";
+                send(clientSocket, response.c_str(), response.size(), 0);
+            }
+            else {
+                response = "Wrong username or password!";
+                send(clientSocket, "Wrong username or password!", response.size() + 1, 0);
+            }
+            //send(clientSocket, response.c_str(), response.size() + 1, 0);
         }
-        else {
-            response = "Wrong username or password!";
-            send(clientSocket, "Wrong username or password!", response.size() + 1, 0);
+
+        else
+        {
+            checkCred = db.getUserByUsername(username, password);
+            if (checkCred == FALSE)
+            {
+                username = strtok(NULL, "*");
+                password = strtok(NULL, "*");
+
+                User user;
+                user.password = password;
+                user.username = username;
+
+                db.createUser(user);
+            }
+
         }
-        //send(clientSocket, response.c_str(), response.size() + 1, 0);
+
     } while (!checkCred);
-    //send(clientSocket, response.c_str(), response.size() + 1, 0);
     while (true) {
         int bytesReceived;
 
