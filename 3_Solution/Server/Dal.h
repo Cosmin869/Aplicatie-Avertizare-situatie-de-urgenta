@@ -102,7 +102,7 @@ public:
         nanodbc::result result = stmt.execute();
 
         const short columns = result.columns();
-        
+
 
         if (result.next()) {
             user.id = result.get<int>(0);
@@ -180,5 +180,5 @@ public:
         }
         return false;
     }
-};
 
+};
