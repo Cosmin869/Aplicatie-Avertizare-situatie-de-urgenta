@@ -1,4 +1,5 @@
 #include "ServerStartUp.h"
+#include <ctime>
 
 Server* Server::instance = nullptr;
 
@@ -15,6 +16,12 @@ void Server::destroyInstance() {
         Server::instance = nullptr;
     }
 }
+
+//variabile globale
+string regiune;
+string dezastru;
+string status;
+time_t current_time;
 
 void Server::clientHandler(SOCKET clientSocket, DAL db) {
     char buf[4096];
@@ -61,8 +68,20 @@ void Server::clientHandler(SOCKET clientSocket, DAL db) {
             checkCred = db.getUserByUsername(username, password); //verify if there is a user with the username selected and if the password is correct
             if (checkCred)
             {
-                response = "You're logged in!";
-                send(clientSocket, response.c_str(), response.size(), 0);
+                bool adm = FALSE;
+                for (int i = 0; i < Server::getInstance().AdminVect.size(); i++) {
+                    if (Server::getInstance().AdminVect[i] == username)
+                    {
+                        response = "You're Admin!";
+                        send(clientSocket, response.c_str(), response.size(), 0);
+                        adm = TRUE;
+                    }
+                    //cout << "nice" << endl;
+                }
+                if (adm == FALSE) {
+                    response = "You're logged in!";
+                    send(clientSocket, response.c_str(), response.size(), 0);
+                }
             }
             else {
                 response = "Wrong username or password!";
@@ -71,7 +90,8 @@ void Server::clientHandler(SOCKET clientSocket, DAL db) {
             //send(clientSocket, response.c_str(), response.size() + 1, 0);
         }
 
-        else
+        else 
+        if(protocol == "1")
         {
             checkCred = db.getUserByUsername(username, password);
             if (checkCred == FALSE)
@@ -87,10 +107,14 @@ void Server::clientHandler(SOCKET clientSocket, DAL db) {
             }
 
         }
+        
 
     } while (!checkCred);
+
+    //send(clientSocket, response.c_str(), response.size() + 1, 0);
     while (true) {
         int bytesReceived;
+
 
         // Receive data from the client
         ZeroMemory(buf, 4096);
@@ -103,6 +127,25 @@ void Server::clientHandler(SOCKET clientSocket, DAL db) {
             std::cout << "Client disconnected: " << clientHost << ":" << clientPort << std::endl;
             break;
         }
+        // Check if we send emergencies from Admin
+        //ZeroMemory(buf, 4096);
+        //dataReceived = recv(clientSocket, buf, 4096, 0);
+        std::string protocol;
+        protocol = strtok(buf, "*");
+        if (protocol == "2") {
+            regiune = strtok(NULL, "*");
+            dezastru = strtok(NULL, "*");
+            status = strtok(NULL, "*");
+            time(&current_time);
+        }
+
+        time_t time_diff = time(NULL) - current_time;
+        if (time_diff < 300 && time_diff % 10 == 0) {
+            //ZeroMemory(buf, 4096);
+            string Emergency = regiune + "*" + dezastru + "*" + status;
+            send(clientSocket, Emergency.c_str(), Emergency.size(), 0);
+        }
+
         // Print received message to server console
         std::cout << "Client> " << std::string(buf, bytesReceived) << std::endl;
 
