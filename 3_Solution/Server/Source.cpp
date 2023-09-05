@@ -26,14 +26,11 @@
 //#include "ServerStartUp.h"
 //#pragma comment (lib, "sqldb.lib")
 
-
 using namespace std;
-
-
 
 int main() {
     Server& server = Server::getInstance();
-    if (server.startServer("127.0.0.1", 54001)) {
+    if (server.startServer("192.168.1.130", 54001)) {
         std::cout << "Server started successfully." << std::endl;
         server.AcceptingClients();
     }
