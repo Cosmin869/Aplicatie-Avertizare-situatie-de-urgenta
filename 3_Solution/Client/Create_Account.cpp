@@ -1,16 +1,15 @@
 #include "create_account.h"
 #include "ui_create_account.h"
 #include "QMessageBox"
-
+#include "mainwindow.h"
 
 Create_Account::Create_Account(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::Create_Account)
 {
-
     ui->setupUi(this);
     this->socket = new QTcpSocket();
-    socket->connectToHost("192.168.43.7", 54001);
+    socket->connectToHost("192.168.43.74", 54001);
     socket->open(QIODevice::ReadWrite);
     this->timer = new QTimer(this);
     connect(this->socket, SIGNAL(readyRead()), this, SLOT(read_from_server()));
@@ -48,5 +47,16 @@ void Create_Account::on_pushButton_clicked()
     {
         QMessageBox::warning(this,"Login","Passwords dont match ");
     }
+
+    this->close();
+    mw2=new MainWindow;
+    mw2->show();
+}
+
+void Create_Account::on_back_button_clicked()
+{
+    this->close();
+    mw2=new MainWindow;
+    mw2->show();
 }
 
