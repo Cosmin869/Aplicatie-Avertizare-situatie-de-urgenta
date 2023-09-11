@@ -1,7 +1,10 @@
 #include "ServerStartUp.h"
-#include <ctime>
 
 Server* Server::instance = nullptr;
+std::vector <SOCKET> users;
+std::vector <SOCKET> admins;
+std::vector <std::string> notifications;
+int nr_notes = 0;
 
 Server& Server::getInstance() {
     if (!Server::instance) {
@@ -17,12 +20,6 @@ void Server::destroyInstance() {
     }
 }
 
-//variabile globale
-string regiune;
-string dezastru;
-string status;
-time_t current_time;
-
 void Server::clientHandler(SOCKET clientSocket, DAL db) {
     char buf[4096];
     sockaddr_in clientAddr;
@@ -35,6 +32,8 @@ void Server::clientHandler(SOCKET clientSocket, DAL db) {
     // Welcome message to the client
 
     bool checkCred = false;
+    bool isAdmin = false; // Add a flag to track admin status
+
     int dataReceived;
     string response;// = "Introduceti numele si parola";
     //std::string welcomeMsg;
@@ -69,45 +68,57 @@ void Server::clientHandler(SOCKET clientSocket, DAL db) {
             if (checkCred)
             {
                 bool adm = FALSE;
-                for (int i = 0; i < Server::getInstance().AdminVect.size(); i++) {
+                for (int i = 0; i < Server::getInstance().AdminVect.size(); i++) 
+                {
                     if (Server::getInstance().AdminVect[i] == username)
                     {
                         response = "You're Admin!";
                         send(clientSocket, response.c_str(), response.size(), 0);
+                        admins.push_back(clientSocket);
                         adm = TRUE;
+                        isAdmin = true;
+                        break;
                     }
                     //cout << "nice" << endl;
                 }
-                if (adm == FALSE) {
+                if (adm == FALSE)
+                {
                     response = "You're logged in!";
+                    
+                    users.push_back(clientSocket);
                     send(clientSocket, response.c_str(), response.size(), 0);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                    for (int i = 0; i < notifications.size(); i++)
+                    {
+                        send(clientSocket, notifications[i].c_str(), notifications[i].size(), 0);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                    }
                 }
             }
-            else {
+            else 
+            {
                 response = "Wrong username or password!";
                 send(clientSocket, "Wrong username or password!", response.size() + 1, 0);
             }
             //send(clientSocket, response.c_str(), response.size() + 1, 0);
         }
 
-        else 
-        if(protocol == "1")
-        {
-            checkCred = db.getUserByUsername(username, password);
-            if (checkCred == FALSE)
+        else
+            if (protocol == "1")
             {
-                username = strtok(NULL, "*");
-                password = strtok(NULL, "*");
+                checkCred = db.getUserByUsername(username, password);
+                if (checkCred == FALSE)
+                {
+                    username = strtok(NULL, "*");
+                    password = strtok(NULL, "*");
 
-                User user;
-                user.password = password;
-                user.username = username;
+                    User user;
+                    user.password = password;
+                    user.username = username;
 
-                db.createUser(user);
-            }
-
-        }
-        
+                    db.createUser(user);
+                }
+            }   
 
     } while (!checkCred);
 
@@ -115,10 +126,47 @@ void Server::clientHandler(SOCKET clientSocket, DAL db) {
     while (true) {
         int bytesReceived;
 
-
         // Receive data from the client
         ZeroMemory(buf, 4096);
         bytesReceived = recv(clientSocket, buf, 4096, 0);
+
+        std::string protocol;
+        protocol = strtok(buf, "*");
+
+        if (!isAdmin && protocol == "3")
+        {
+            string sos = strtok(NULL, "*");
+            for (int i = 0; i < admins.size(); i++)
+            {
+                send(admins[i], sos.c_str(), sos.size(), 0);
+            }
+        }
+
+        if (isAdmin && protocol == "2")
+        {
+            string regiune = strtok(NULL, "*");
+            string dezastru = strtok(NULL, "*");
+            string status = strtok(NULL, "*");
+
+            response = "Alerta! Zona " + regiune + " este afectata de: " + dezastru + ". Status: " + status + "!\n";
+            if (nr_notes < 3)
+            {
+                notifications.push_back(response);
+                nr_notes++;
+            }
+            else
+            {
+                notifications.erase(notifications.begin());
+                notifications.push_back(response);
+            }
+
+            for (int i = 0; i < users.size(); i++)
+            {
+                send(users[i], response.c_str(), response.size(), 0);
+            }
+           
+        }
+
         if (bytesReceived == SOCKET_ERROR) {
             std::cout << "Client disconnected: " << clientHost << ":" << clientPort << std::endl;
             break;
@@ -127,25 +175,6 @@ void Server::clientHandler(SOCKET clientSocket, DAL db) {
             std::cout << "Client disconnected: " << clientHost << ":" << clientPort << std::endl;
             break;
         }
-        // Check if we send emergencies from Admin
-        //ZeroMemory(buf, 4096);
-        //dataReceived = recv(clientSocket, buf, 4096, 0);
-        std::string protocol;
-        protocol = strtok(buf, "*");
-        if (protocol == "2") {
-            regiune = strtok(NULL, "*");
-            dezastru = strtok(NULL, "*");
-            status = strtok(NULL, "*");
-            time(&current_time);
-        }
-
-        time_t time_diff = time(NULL) - current_time;
-        if (time_diff < 300 && time_diff % 10 == 0) {
-            //ZeroMemory(buf, 4096);
-            string Emergency = regiune + "*" + dezastru + "*" + status;
-            send(clientSocket, Emergency.c_str(), Emergency.size(), 0);
-        }
-
         // Print received message to server console
         std::cout << "Client> " << std::string(buf, bytesReceived) << std::endl;
 
@@ -252,5 +281,5 @@ Server::~Server() {
     closesocket(serverSocket_);
     WSACleanup();
 
-    isRunning_ = false;
+    isRunning_= false;
 }
